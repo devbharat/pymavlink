@@ -14041,6 +14041,16 @@ import numpy as np
 import time
 from copy import copy # to not copy by reference
 
+import pycurl
+try:
+    # python 3
+    from urllib.parse import urlencode
+except ImportError:
+    # python 2
+    from urllib import urlencode
+
+
+
 device = 'udpout:127.0.0.1:14550'
 mav_updport = mavutil.mavlink_connection(device)
 mav = MAVLink(mav_updport, 255,1)
@@ -14084,6 +14094,19 @@ while True:
 
                 elif (msg.id == MAVLINK_MSG_ID_COMMAND_LONG):
                     print('received Command Long')
+                    c = pycurl.Curl()
+                    c.setopt(c.URL, 'https://api.particle.io/v1/devices/20002a000651363130333334/command?access_token=aa7aded201ea079970fd9ed760037f4cc9d97477')
+                    post_data = {'command': 'RTL'}
+                    # Form data must be provided already urlencoded.
+                    postfields = urlencode(post_data)
+                    # Sets request method to POST,
+                    # Content-Type header to application/x-www-form-urlencoded
+                    # and data to send in request body.
+                    c.setopt(c.POSTFIELDS, postfields)
+
+                    c.perform()
+                    c.close()
+
 
                 else:
                     pass
