@@ -8163,7 +8163,6 @@ class MAVLink(object):
                 self.seq = (self.seq + 1) % 256
                 self.total_packets_sent += 1
                 self.total_bytes_sent += len(buf)
-                print(len(buf))
                 if self.send_callback:
                     self.send_callback(mavmsg, *self.send_callback_args, **self.send_callback_kwargs)
 
@@ -14027,6 +14026,9 @@ class MAVLink(object):
                 return self.send(self.obstacle_distance_encode(time_usec, estimator_type, distances, increment), force_mavlink1=force_mavlink1)
 
 
+##############################################################################################
+# Client file start here
+##############################################################################################
 
 import sys, os
 
@@ -14034,21 +14036,57 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 import socket
-device = 'udpout:127.0.0.1:14550'
 from pymavlink import mavutil
 import numpy as np
 import time
+from copy import copy # to not copy by reference
+
+device = 'udpout:127.0.0.1:14550'
 mav_updport = mavutil.mavlink_connection(device)
 mav = MAVLink(mav_updport, 255,1)
+t_now = time.time()
+
+def send_hb(t_now):
+    # Do not edit t_now here
+    if not hasattr(send_hb, "last_hb_time"):
+        send_hb.last_hb_time = time.time()
+
+    if (t_now - send_hb.last_hb_time > 1): # 1Hz
+        mav.heartbeat_send(19, 12, 0b10000100, 0, 4, False)
+        send_hb.last_hb_time = time.time()
+        print('Sent HB')
+
+# Do not slow down this loop. We have no async function handling going on
 while True:
-    mav.heartbeat_send(19, 12, 4, 0, 4, False)
-    t_now = np.uint32((round(time.time() * 1000)))
-    mav.attitude_send(t_now, 0, 0, 0, 0, 0, 0)
-    mav.global_position_int_send(t_now, 10, 10, 10, 0, 0, 0, 0, 0)
-    time.sleep(1)
-    print('sent hb')
+    # Run loop at 1000 Hz
+    time.sleep(0.001)
+
+    # Update time
+    t_now = time.time()
+    t_ms = np.uint32((round(t_now * 1000)))
+
+    # Send HB if required
+    send_hb(t_now)
+    mav.attitude_send(t_ms, 0, 0, 0, 0, 0, 0)
+    mav.global_position_int_send(t_ms, 10, 10, 10, 0, 0, 0, 0, 0)
+
     try:
         buf1 = mav_updport.recv()
-        k = mav.parse_buffer(buf1)
+        if (len(buf1) != 0):
+            msglist = mav.parse_buffer(buf1)
+            # mav_updport.recv_msg()
+            # print(msglist)
+
+            # Handle incoming mavlink messages from WiP
+            for msg in msglist:
+                if (msg.id == MAVLINK_MSG_ID_HEARTBEAT):
+                    print('received HB')
+
+                elif (msg.id == MAVLINK_MSG_ID_COMMAND_LONG):
+                    print('received Command Long')
+
+                else:
+                    pass
+
     except socket.error:
-        print('g')
+        print('socket error')
