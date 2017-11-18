@@ -19,7 +19,7 @@ def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--mavport", required=True,
                       help="Mavlink port name")
-    parser.add_argument("--mavbaud", type=int,
+    parser.add_argument("--mavbaudx", type=int,
                       help="Mavlink port baud rate", default=115200)
     parser.add_argument("--devnum", default=2, type=int,
                       help="PX4 UART device number (defaults to GPS port)")
@@ -42,7 +42,7 @@ def main():
         args.mavport, args.mavbaud,
         devnum=args.devnum, devbaud=args.devbaud, debug=args.debug)
 
-    listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listen_sock.bind((args.tcpaddr, args.tcpport))
     listen_sock.listen(1)
