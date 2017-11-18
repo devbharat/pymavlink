@@ -14033,60 +14033,22 @@ import sys, os
 # allow import from the parent directory, where mavlink.py is
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
-class fifo(object):
-    def __init__(self):
-        self.buf = []
-    def write(self, data):
-        self.buf += data
-        return len(data)
-    def read(self):
-        return self.buf.pop(0)
-
-f = fifo()
-
-# create a mavlink instance, which will do IO on file object 'f'
-mav = MAVLink(f)
-
-mav.heartbeat_send(19, 12, 4, 0, 4)
-print(f.buf)
-
 import socket
-# listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# UDP_IP = "127.0.0.1"
-# UDP_PORT = 14550
-# listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# listen_sock.bind((UDP_IP, UDP_PORT))
-# listen_sock.listen(1)
-# 
-# # create a mavlink instance, which will do IO on file object 'f'
-# mav1 = MAVLink(listen_sock)
-# 
-# mav1.heartbeat_send(19, 12, 4, 0, 4)
-dev = 'udpout:127.0.0.1:14550'
+device = 'udpout:127.0.0.1:14550'
 from pymavlink import mavutil
+import numpy as np
 import time
-mav_updport = mavutil.mavlink_connection(dev)
-mav1 = MAVLink(mav_updport, 255,1)
-g = fifo()
+mav_updport = mavutil.mavlink_connection(device)
+mav = MAVLink(mav_updport, 255,1)
 while True:
-    mav1.heartbeat_send(19, 12, 4, 0, 4, False)
-    # # int(round(time.time() * 1000))
-    mav1.attitude_send(0, 0, 0, 0, 0, 0, 0)
-    mav1.global_position_int_send(0, 10, 10, 10, 0, 0, 0, 0, 0)
+    mav.heartbeat_send(19, 12, 4, 0, 4, False)
+    t_now = np.uint32((round(time.time() * 1000)))
+    mav.attitude_send(t_now, 0, 0, 0, 0, 0, 0)
+    mav.global_position_int_send(t_now, 10, 10, 10, 0, 0, 0, 0, 0)
     time.sleep(1)
     print('sent hb')
     try:
         buf1 = mav_updport.recv()
-        k = mav1.parse_buffer(buf1)
-        #print(k[0].type)
-        #print(k[0].autopilot)
-        #print(k[0].base_mode)
-        #print(k[0].custom_mode)
-        #print(k[0].system_status)
-        #print(k[0].mavlink_version)
-        #print('f')
-        #g.write(buf1)
-        #print(g.buf)
-        #print('\n')
+        k = mav.parse_buffer(buf1)
     except socket.error:
         print('g')
