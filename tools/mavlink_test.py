@@ -14080,6 +14080,27 @@ device = 'udpout:127.0.0.1:14550'
 mav_updport = mavutil.mavlink_connection(device)
 mav = MAVLink(mav_updport, 255,1)
 t_now = time.time()
+t_ms = np.uint32((round(t_now * 1000)))
+
+# Input data from server
+lat = 0
+lon = 0
+amsl = 0
+head = 0
+volts = 0
+
+def parse_msg(msg):
+    lat = msg['lat']
+    lon = msg['lon']
+    amsl = msg['amsl']
+    head = msg['head']
+    volts = msg['volts']
+    send_mavlink_msg(lat, lon, amsl, head, volts)
+
+def send_mavlink_msg(lat, lon, amsl, head, volts):
+    #(self, time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg, force_mavlink1=False):
+    mav.global_position_int_send(t_ms, lat * 10000000, lon * 10000000, amsl * 1000, 0, 0, 0, 0, head)
+
 
 def send_hb(t_now):
     # Do not edit t_now here
@@ -14105,6 +14126,8 @@ while True:
                 data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
                 if data:
                     msg = cPickle.loads(data)
+                    print(msg)
+                    parse_msg(msg)
                 else:
                     print('no more data from client_address')
                     break
@@ -14124,7 +14147,7 @@ while True:
     # Send HB if required
     send_hb(t_now)
     # mav.attitude_send(t_ms, 0, 0, 0, 0, 0, 0)
-    # mav.global_position_int_send(t_ms, 10, 10, 10, 0, 0, 0, 0, 0)(
+    # mav.global_position_int_send(t_ms, 10, 10, 10, 0, 0, 0, 0, 0)
 
     try:
         buf1 = mav_updport.recv()
