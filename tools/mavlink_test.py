@@ -14049,7 +14049,33 @@ except ImportError:
     # python 2
     from urllib import urlencode
 
+from sseclient import SSEClient
+import simplejson as json
+from ast import literal_eval
 
+import socket
+import sys
+import os
+
+import cPickle
+
+#server_address = '/home/carl/src/devbharat_pymavlink/mavlink/potato_socket'
+server_address = '127.0.0.1'
+server_port = 14340
+# Make sure the socket does not already exist
+try:
+    os.unlink(server_address)
+except OSError:
+    if os.path.exists(server_address):
+        raise
+# Create a UDS socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Bind the socket to the port
+print('starting up on server_address')
+sock.setblocking(0)
+sock.bind((server_address, server_port))
+# Listen for incoming connections
+sock.listen(1)
 
 device = 'udpout:127.0.0.1:14550'
 mav_updport = mavutil.mavlink_connection(device)
@@ -14068,8 +14094,40 @@ def send_hb(t_now):
 
 # Do not slow down this loop. We have no async function handling going on
 while True:
+    # Wait for a connection
+    # print('waiting for a connection')
+    try:
+        sock.setblocking(0)
+        connection, client_address = sock.accept()
+    except:
+        pass
+
+    try:
+        # print('connection from client_address')
+
+        # Receive the data in small chunks and retransmit it
+        while True:
+            try:
+                sock.setblocking(0)
+
+                # print('before recv')
+                data = connection.recv(100)
+                print('received data')
+                print(data)
+                if data:
+                    a = cPickle.loads(data)
+                    print(a)
+                else:
+                    print('no more data from client_address')
+                    break
+            except:
+                # print('break')
+                break
+    except:
+        pass
+
     # Run loop at 1000 Hz
-    time.sleep(0.001)
+    time.sleep(0.1)
 
     # Update time
     t_now = time.time()
@@ -14077,8 +14135,8 @@ while True:
 
     # Send HB if required
     send_hb(t_now)
-    mav.attitude_send(t_ms, 0, 0, 0, 0, 0, 0)
-    mav.global_position_int_send(t_ms, 10, 10, 10, 0, 0, 0, 0, 0)
+    # mav.attitude_send(t_ms, 0, 0, 0, 0, 0, 0)
+    # mav.global_position_int_send(t_ms, 10, 10, 10, 0, 0, 0, 0, 0)(
 
     try:
         buf1 = mav_updport.recv()
