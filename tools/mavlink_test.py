@@ -14049,13 +14049,12 @@ except ImportError:
     # python 2
     from urllib import urlencode
 
-from sseclient import SSEClient
 import simplejson as json
 from ast import literal_eval
 
 import socket
 import sys
-import os
+import os, fcntl
 
 import cPickle
 
@@ -14069,13 +14068,13 @@ except OSError:
     if os.path.exists(server_address):
         raise
 # Create a UDS socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+fcntl.fcntl(sock, fcntl.F_SETFL, os.O_NONBLOCK)
+
 # Bind the socket to the port
 print('starting up on server_address')
-sock.setblocking(0)
 sock.bind((server_address, server_port))
 # Listen for incoming connections
-sock.listen(1)
 
 device = 'udpout:127.0.0.1:14550'
 mav_updport = mavutil.mavlink_connection(device)
@@ -14095,12 +14094,6 @@ def send_hb(t_now):
 # Do not slow down this loop. We have no async function handling going on
 while True:
     # Wait for a connection
-    # print('waiting for a connection')
-    try:
-        sock.setblocking(0)
-        connection, client_address = sock.accept()
-    except:
-        pass
 
     try:
         # print('connection from client_address')
@@ -14108,15 +14101,10 @@ while True:
         # Receive the data in small chunks and retransmit it
         while True:
             try:
-                sock.setblocking(0)
-
                 # print('before recv')
-                data = connection.recv(100)
-                print('received data')
-                print(data)
+                data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
                 if data:
-                    a = cPickle.loads(data)
-                    print(a)
+                    msg = cPickle.loads(data)
                 else:
                     print('no more data from client_address')
                     break
