@@ -14100,6 +14100,9 @@ def parse_msg(msg):
 def send_mavlink_msg(lat, lon, amsl, head, volts):
     #(self, time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg, force_mavlink1=False):
     mav.global_position_int_send(t_ms, lat * 10000000, lon * 10000000, amsl * 1000, 0, 0, 0, 0, head)
+    mav.attitude_send(t_ms, 0, 0, head, 0, 0, 0)
+    mav.sys_status_send(1, 1, 0, 0, volts*1000, 10, 95, 0, 0, 0, 0, 0, 0)
+    mav.extended_sys_state_send(1, 0)
 
 
 def send_hb(t_now):
@@ -14108,7 +14111,14 @@ def send_hb(t_now):
         send_hb.last_hb_time = time.time()
 
     if (t_now - send_hb.last_hb_time > 1): # 1Hz
-        mav.heartbeat_send(19, 12, 0b10000100, 0, 4, False)
+        mav.heartbeat_send(19, 12, MAV_MODE_FLAG_STABILIZE_ENABLED, 0, MAV_STATE_ACTIVE) #  TODO get real arguments here 
+        
+        # mav.global_position_int_send(t_ms, 1 * 10000000, 1 * 10000000, 0 * 1000, 0, 0, 0, 0, 0)
+        # mav.attitude_send(t_ms, 0, 0, head, 0, 0, 0)
+        # mav.home_position_send(1, 1, 1000, 0, 0, 0, 0, 0, 0, 0)
+        
+        # heartbeat_send(type, autopilot, base_mode, custom_mode, system_status, mavlink_version=3, force_mavlink1=False):
+        # mav.heartbeat_send(19, 12, MAV_MODE_FLAG_AUTO_ENABLED, 0, 4, False) #  TODO get real arguments here 
         send_hb.last_hb_time = time.time()
         print('Sent HB')
 
@@ -14161,23 +14171,19 @@ while True:
                 if (msg.id == MAVLINK_MSG_ID_HEARTBEAT):
                     print('received HB')
 
-                elif (msg.id == MAVLINK_MSG_ID_COMMAND_LONG):
-                    print('received Command Long')
+                elif (msg.id == MAVLINK_MSG_ID_SET_MODE):
+                    print('woho')
+                    
                     c = pycurl.Curl()
                     c.setopt(c.URL, 'https://api.particle.io/v1/devices/20002a000651363130333334/command?access_token=aa7aded201ea079970fd9ed760037f4cc9d97477')
                     post_data = {'command': 'RTL'}
-                    # Form data must be provided already urlencoded.
                     postfields = urlencode(post_data)
-                    # Sets request method to POST,
-                    # Content-Type header to application/x-www-form-urlencoded
-                    # and data to send in request body.
                     c.setopt(c.POSTFIELDS, postfields)
-
                     c.perform()
                     c.close()
+                    print('Sending RTL')
 
-
-                else:
+                else: 
                     pass
 
     except socket.error:
